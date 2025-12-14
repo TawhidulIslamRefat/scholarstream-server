@@ -25,6 +25,9 @@ async function run() {
 
     const db = client.db("scholarstream-db");
     const userCollection = db.collection("users");
+    const scholarshipCollection = db.collection("scholarships");
+    const reviewsCollection = db.collection("reviews");
+    const applicationsCollection = db.collection("applications");
 
     /* User related Api */
     app.post("/users", async (req, res) => {
@@ -49,6 +52,44 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // Scholarship related APIs
+    app.get("/scholarships", async (req, res) => {
+      const search = req.query.search;
+      const sort = req.query.sort;
+      const email = req.query.email;
+
+      let query = {};
+      if (search) {
+        query.propertyName = { $regex: search, $options: "i" };
+      }
+
+      if (email) {
+        query["postedBy.email"] = email;
+      }
+
+      let sortOption = {};
+      if (sort === "price-asc") sortOption.price = 1;
+      if (sort === "price-desc") sortOption.price = -1;
+      if (sort === "date-desc") sortOption.postedDate = -1;
+      if (sort === "date-asc") sortOption.postedDate = 1;
+      const result = await scholarshipCollection
+        .find(query)
+        .sort(sortOption)
+        .toArray();
+      res.send(result);
+    });
+
+    app.get("/top-scholarships", async (req, res) => {
+      const result = await scholarshipCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.post("/scholarships", async (req, res) => {
+      const newScholarship = req.body;
+      const result = await scholarshipCollection.insertOne(newScholarship);
       res.send(result);
     });
 
