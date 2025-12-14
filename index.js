@@ -56,30 +56,39 @@ async function run() {
     });
 
     // Scholarship related APIs
-    app.get("/scholarships", async (req, res) => {
-      const search = req.query.search;
-      const sort = req.query.sort;
-      const email = req.query.email;
+    app.get('/scholarships', async (req,res) =>{
+      try{
+        const {
+          search,
+          scholarshipCategory,
+          subjectCategory,
+          location
+        } = req.query;
 
-      let query = {};
-      if (search) {
-        query.propertyName = { $regex: search, $options: "i" };
+        let query = {};
+        if (search) {
+          query.$or = [
+            {scholarshipName:{$regex : search, $option:"i"}},
+            {universityName:{$regex : search, $option:"i"}},
+            {degree:{$regex : search, $option:"i"}},
+          ];
+        }
+          if (scholarshipCategory) {
+            query.scholarshipCategory = scholarshipCategory;
+          }
+          if (subjectCategory) {
+            query.subjectCategory = subjectCategory;
+          }
+          if (location) {
+            query.location = location;
+          }
+
+          const result = await scholarshipCollection.find(query).toArray();
+
+          res.send(result);
+      }catch{
+        res.status(500).send({message:"Server Error", error})
       }
-
-      if (email) {
-        query["postedBy.email"] = email;
-      }
-
-      let sortOption = {};
-      if (sort === "price-asc") sortOption.price = 1;
-      if (sort === "price-desc") sortOption.price = -1;
-      if (sort === "date-desc") sortOption.postedDate = -1;
-      if (sort === "date-asc") sortOption.postedDate = 1;
-      const result = await scholarshipCollection
-        .find(query)
-        .sort(sortOption)
-        .toArray();
-      res.send(result);
     });
 
     app.get("/top-scholarships", async (req, res) => {
