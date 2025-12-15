@@ -91,10 +91,30 @@ async function run() {
       }
     });
 
+     app.get("/scholarships/:id", async (req, res) => {
+      const id = req.params.id;
+
+      let result = null;
+
+      if (ObjectId.isValid(id)) {
+        result = await scholarshipCollection.findOne({ _id: new ObjectId(id) });
+      }
+
+      if (!result) {
+        result = await scholarshipCollection.findOne({ _id: id });
+      }
+
+      if (!result) {
+        return res.status(404).send({ message: "Scholarship Not Found" });
+      }
+      res.send(result);
+    });
+
     app.get("/top-scholarships", async (req, res) => {
       const result = await scholarshipCollection.find().toArray();
       res.send(result);
     });
+
 
     app.post("/scholarships", async (req, res) => {
       const newScholarship = req.body;
