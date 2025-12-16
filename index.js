@@ -122,6 +122,27 @@ async function run() {
       res.send(result);
     });
 
+    //  rating Api
+    app.post("/reviews", async (req, res) => {
+      const review = req.body;
+      const result = await reviewsCollection.insertOne(review);
+      res.send(result);
+    });
+
+    app.get("/reviews/:scholarshipId", async (req, res) => {
+      const scholarshipId = req.params.scholarshipId;
+      const result = await reviewsCollection.find({ scholarshipId }).toArray();
+      res.send(result);
+    });
+     
+    // Application related API
+     app.post("/applications", async (req, res) => {
+      const application = req.body;
+      const result = await applicationsCollection.insertOne(application);
+      res.send(result);
+    });
+
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
