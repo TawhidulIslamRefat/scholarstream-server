@@ -34,16 +34,20 @@ async function run() {
     app.post("/users", async (req, res) => {
       const { name, email, photo } = req.body;
 
+      let role = "Student";
+
+      if (email === process.env.ADMIN_EMAIL) {
+        role = "Admin";
+      }
       const newUser = {
         name,
         email,
         photo,
-        role: "Student",
+        role,
         createdAt: new Date(),
       };
 
       const existingUser = await userCollection.findOne({ email });
-
       if (existingUser) {
         return res.send({ message: "User already exists" });
       }
@@ -64,19 +68,79 @@ async function run() {
       res.send(result);
     });
 
-    app.patch(
-      "/users/role/:email",async (req, res) => {
-        const targetEmail = req.params.email;
-        const { role } = req.body;
+    app.patch("/users/role/:id", async (req, res) => {
+      const targetId = req.params.id; // MongoDB ObjectId
+      const { role } = req.body; // নতুন role: "Admin" / "Moderator"
 
-        const result = await userCollection.updateOne(
-          { email: targetEmail },
-          { $set: { role } }
-        );
+      // 1️⃣ Verify requester (SuperAdmin only)
+      const requesterEmail = req.headers["x-user-email"]; // frontend থেকে পাঠানো
+      const requester = await userCollection.findOne({ email: requesterEmail });
 
-        res.send(result);
+      if (!requester || requester.role !== "SuperAdmin") {
+        return res
+          .status(403)
+          .send({ message: "Only SuperAdmin can change roles" });
       }
-    );
+
+      // 2️⃣ Prevent changing SuperAdmin role
+      const targetUser = await userCollection.findOne({
+        _id: new ObjectId(targetId),
+      });
+      if (!targetUser) {
+        return res.status(404).send({ message: "User not found" });
+      }
+      if (targetUser.email === process.env.SUPER_ADMIN_EMAIL) {
+        return res
+          .status(403)
+          .send({ message: "Cannot change SuperAdmin role" });
+      }
+
+      const result = await userCollection.updateOne(
+        { _id: new ObjectId(targetId) },
+        { $set: { role } }
+      );
+
+      res.send({ message: "Role updated successfully", result });
+    });
+
+    app.patch("/users/role/:id", async (req, res) => {
+      const targetId = req.params.id;
+      const { role } = req.body;
+
+      const requesterEmail = req.headers["x-user-email"];
+      const requester = await userCollection.findOne({ email: requesterEmail });
+
+      if (!requester || requester.role !== "Admin") {
+        return res.status(403).send({ message: "Only Admin can change roles" });
+      }
+
+      const targetUser = await userCollection.findOne({
+        _id: new ObjectId(targetId),
+      });
+      if (!targetUser) {
+        return res.status(404).send({ message: "User not found" });
+      }
+      if (targetUser.email === process.env.ADMIN_EMAIL) {
+        return res.status(403).send({ message: "Cannot change Admin role" });
+      }
+      const result = await userCollection.updateOne(
+        { _id: new ObjectId(targetId) },
+        { $set: { role } }
+      );
+
+      res.send({ message: "Role updated successfully", result });
+    });
+
+    app.get("/users/:email/role", async (req, res) => {
+      const email = req.params.email;
+      const user = await userCollection.findOne({ email });
+
+      if (!user) {
+        return res.send({ role: "Student" });
+      }
+
+      res.send({ role: user.role });
+    });
 
     // Scholarship related APIs
     app.get("/scholarships", async (req, res) => {
