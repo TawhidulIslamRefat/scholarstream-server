@@ -2,13 +2,14 @@ const express = require("express");
 require("dotenv").config();
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
+
 const app = express();
 const port = process.env.PORT || 3000;
 
 /* middleWare */
 app.use(cors());
 app.use(express.json());
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.fcwgrle.mongodb.net/?appName=Cluster0`;
 
 const client = new MongoClient(uri, {
@@ -31,16 +32,24 @@ async function run() {
 
     /* User related Api */
     app.post("/users", async (req, res) => {
-      const newUser = req.body;
-      const email = req.body.email;
-      const query = { email: email };
-      const existingUser = await userCollection.findOne(query);
+      const { name, email, photo } = req.body;
+
+      const newUser = {
+        name,
+        email,
+        photo,
+        role: "Student",
+        createdAt: new Date(),
+      };
+
+      const existingUser = await userCollection.findOne({ email });
+
       if (existingUser) {
-        res.send({ message: "user already exits.do not need to insert again" });
-      } else {
-        const result = await userCollection.insertOne(newUser);
-        res.send(result);
+        return res.send({ message: "User already exists" });
       }
+
+      const result = await userCollection.insertOne(newUser);
+      res.send(result);
     });
 
     app.get("/users", async (req, res) => {
@@ -55,43 +64,53 @@ async function run() {
       res.send(result);
     });
 
+    app.patch(
+      "/users/role/:email",async (req, res) => {
+        const targetEmail = req.params.email;
+        const { role } = req.body;
+
+        const result = await userCollection.updateOne(
+          { email: targetEmail },
+          { $set: { role } }
+        );
+
+        res.send(result);
+      }
+    );
+
     // Scholarship related APIs
-    app.get('/scholarships', async (req,res) =>{
-      try{
-        const {
-          search,
-          scholarshipCategory,
-          subjectCategory,
-          location
-        } = req.query;
+    app.get("/scholarships", async (req, res) => {
+      try {
+        const { search, scholarshipCategory, subjectCategory, location } =
+          req.query;
 
         let query = {};
         if (search) {
           query.$or = [
-            {scholarshipName:{$regex : search, $option:"i"}},
-            {universityName:{$regex : search, $option:"i"}},
-            {degree:{$regex : search, $option:"i"}},
+            { scholarshipName: { $regex: search, $option: "i" } },
+            { universityName: { $regex: search, $option: "i" } },
+            { degree: { $regex: search, $option: "i" } },
           ];
         }
-          if (scholarshipCategory) {
-            query.scholarshipCategory = scholarshipCategory;
-          }
-          if (subjectCategory) {
-            query.subjectCategory = subjectCategory;
-          }
-          if (location) {
-            query.location = location;
-          }
+        if (scholarshipCategory) {
+          query.scholarshipCategory = scholarshipCategory;
+        }
+        if (subjectCategory) {
+          query.subjectCategory = subjectCategory;
+        }
+        if (location) {
+          query.location = location;
+        }
 
-          const result = await scholarshipCollection.find(query).toArray();
+        const result = await scholarshipCollection.find(query).toArray();
 
-          res.send(result);
-      }catch{
-        res.status(500).send({message:"Server Error", error})
+        res.send(result);
+      } catch {
+        res.status(500).send({ message: "Server Error", error });
       }
     });
 
-     app.get("/scholarships/:id", async (req, res) => {
+    app.get("/scholarships/:id", async (req, res) => {
       const id = req.params.id;
 
       let result = null;
@@ -115,7 +134,6 @@ async function run() {
       res.send(result);
     });
 
-
     app.post("/scholarships", async (req, res) => {
       const newScholarship = req.body;
       const result = await scholarshipCollection.insertOne(newScholarship);
@@ -134,14 +152,13 @@ async function run() {
       const result = await reviewsCollection.find({ scholarshipId }).toArray();
       res.send(result);
     });
-     
+
     // Application related API
-     app.post("/applications", async (req, res) => {
+    app.post("/applications", async (req, res) => {
       const application = req.body;
       const result = await applicationsCollection.insertOne(application);
       res.send(result);
     });
-
 
     await client.db("admin").command({ ping: 1 });
     console.log(
