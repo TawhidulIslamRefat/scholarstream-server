@@ -247,6 +247,39 @@ async function run() {
       res.send(result);
     });
 
+    app.delete("/reviews/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await reviewsCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.get("/reviews/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await reviewsCollection
+        .find({ userEmail: email })
+        .toArray();
+      res.send(result);
+    });
+
+    app.patch("/reviews/:id", async (req, res) => {
+      const id = req.params.id;
+      const { comment, rating } = req.body;
+
+      const result = await reviewsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            comment,
+            rating,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      res.send(result);
+    });
+
     app.get("/reviews/:scholarshipId", async (req, res) => {
       const scholarshipId = req.params.scholarshipId;
       const result = await reviewsCollection.find({ scholarshipId }).toArray();
