@@ -69,41 +69,6 @@ async function run() {
     });
 
     app.patch("/users/role/:id", async (req, res) => {
-      const targetId = req.params.id; // MongoDB ObjectId
-      const { role } = req.body; // নতুন role: "Admin" / "Moderator"
-
-      // 1️⃣ Verify requester (SuperAdmin only)
-      const requesterEmail = req.headers["x-user-email"]; // frontend থেকে পাঠানো
-      const requester = await userCollection.findOne({ email: requesterEmail });
-
-      if (!requester || requester.role !== "SuperAdmin") {
-        return res
-          .status(403)
-          .send({ message: "Only SuperAdmin can change roles" });
-      }
-
-      // 2️⃣ Prevent changing SuperAdmin role
-      const targetUser = await userCollection.findOne({
-        _id: new ObjectId(targetId),
-      });
-      if (!targetUser) {
-        return res.status(404).send({ message: "User not found" });
-      }
-      if (targetUser.email === process.env.SUPER_ADMIN_EMAIL) {
-        return res
-          .status(403)
-          .send({ message: "Cannot change SuperAdmin role" });
-      }
-
-      const result = await userCollection.updateOne(
-        { _id: new ObjectId(targetId) },
-        { $set: { role } }
-      );
-
-      res.send({ message: "Role updated successfully", result });
-    });
-
-    app.patch("/users/role/:id", async (req, res) => {
       const targetId = req.params.id;
       const { role } = req.body;
 
@@ -117,12 +82,11 @@ async function run() {
       const targetUser = await userCollection.findOne({
         _id: new ObjectId(targetId),
       });
+
       if (!targetUser) {
         return res.status(404).send({ message: "User not found" });
       }
-      if (targetUser.email === process.env.ADMIN_EMAIL) {
-        return res.status(403).send({ message: "Cannot change Admin role" });
-      }
+
       const result = await userCollection.updateOne(
         { _id: new ObjectId(targetId) },
         { $set: { role } }
@@ -217,50 +181,69 @@ async function run() {
     });
 
     app.patch("/scholarships/:id", async (req, res) => {
-      const id = req.params.id;
-      const updatedData = req.body;
+      try {
+        const id = req.params.id;
+        const updatedData = req.body;
 
-      const filter = { _id: new ObjectId(id) };
+        const query = { _id: id || new ObjectId(id) };
 
-      const updateFields = {
-        ...updatedData,
-      };
+        const update = {
+          $set: {
+            scholarshipName: updatedData.scholarshipName,
+            scholarshipDescription: updatedData.scholarshipDescription,
+            stipendCoverage: updatedData.stipendCoverage,
+            universityName: updatedData.universityName,
+            universityImage: updatedData.universityImage,
+            universityCountry: updatedData.universityCountry,
+            universityCity: updatedData.universityCity,
+            universityWorldRank:
+              updatedData.universityWorldRank !== undefined
+                ? Number(updatedData.universityWorldRank)
+                : undefined,
+            subjectCategory: updatedData.subjectCategory,
+            scholarshipCategory: updatedData.scholarshipCategory,
+            degree: updatedData.degree,
+            tuitionFees:
+              updatedData.tuitionFees !== undefined
+                ? Number(updatedData.tuitionFees)
+                : 0,
+            applicationFees:
+              updatedData.applicationFees !== undefined
+                ? Number(updatedData.applicationFees)
+                : 0,
+            serviceCharge:
+              updatedData.serviceCharge !== undefined
+                ? Number(updatedData.serviceCharge)
+                : 0,
+            applicationDeadline: updatedData.applicationDeadline,
+            scholarshipPostDate: updatedData.scholarshipPostDate,
+            postedUserEmail: updatedData.postedUserEmail,
+            location: updatedData.universityCountry || updatedData.location,
+          },
+        };
 
-      if (updatedData.universityWorldRank !== undefined) {
-        updateFields.universityWorldRank = Number(
-          updatedData.universityWorldRank
-        );
+        const result = await scholarshipCollection.updateOne(query, update);
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ message: "Scholarship not found" });
+        }
+
+        res.send({ message: "Updated successfully", result });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Server error", error: error.message });
       }
-
-      if (updatedData.tuitionFees !== undefined) {
-        updateFields.tuitionFees = Number(updatedData.tuitionFees) || 0;
-      }
-
-      if (updatedData.applicationFees !== undefined) {
-        updateFields.applicationFees = Number(updatedData.applicationFees);
-      }
-
-      if (updatedData.serviceCharge !== undefined) {
-        updateFields.serviceCharge = Number(updatedData.serviceCharge);
-      }
-
-      if (updatedData.universityCountry) {
-        updateFields.location = updatedData.universityCountry;
-      }
-
-      const updateDoc = {
-        $set: updateFields,
-      };
-
-      const result = await scholarshipCollection.updateOne(filter, updateDoc);
-
-      res.send(result);
     });
 
     //  rating Api
     app.post("/reviews", async (req, res) => {
       const review = req.body;
       const result = await reviewsCollection.insertOne(review);
+      res.send(result);
+    });
+
+    app.get("/reviews", async (req, res) => {
+      const result = await reviewsCollection.find().toArray();
       res.send(result);
     });
 
