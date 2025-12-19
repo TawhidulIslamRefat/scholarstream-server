@@ -212,7 +212,48 @@ async function run() {
     app.delete("/scholarships/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
-      const result = await userCollection.deleteOne(query);
+      const result = await scholarshipCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.patch("/scholarships/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedData = req.body;
+
+      const filter = { _id: new ObjectId(id) };
+
+      const updateFields = {
+        ...updatedData,
+      };
+
+      if (updatedData.universityWorldRank !== undefined) {
+        updateFields.universityWorldRank = Number(
+          updatedData.universityWorldRank
+        );
+      }
+
+      if (updatedData.tuitionFees !== undefined) {
+        updateFields.tuitionFees = Number(updatedData.tuitionFees) || 0;
+      }
+
+      if (updatedData.applicationFees !== undefined) {
+        updateFields.applicationFees = Number(updatedData.applicationFees);
+      }
+
+      if (updatedData.serviceCharge !== undefined) {
+        updateFields.serviceCharge = Number(updatedData.serviceCharge);
+      }
+
+      if (updatedData.universityCountry) {
+        updateFields.location = updatedData.universityCountry;
+      }
+
+      const updateDoc = {
+        $set: updateFields,
+      };
+
+      const result = await scholarshipCollection.updateOne(filter, updateDoc);
+
       res.send(result);
     });
 
@@ -228,7 +269,6 @@ async function run() {
       const result = await reviewsCollection.find({ scholarshipId }).toArray();
       res.send(result);
     });
-
 
     // Application related API
     app.post("/applications", async (req, res) => {
