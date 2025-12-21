@@ -428,18 +428,20 @@ async function run() {
           },
           mode: "payment",
           success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-failed?scholarshipName=${encodeURIComponent(scholarshipName)}`,
+          cancel_url: `${
+            process.env.SITE_DOMAIN
+          }/dashboard/payment-failed?scholarshipName=${encodeURIComponent(
+            scholarshipName
+          )}`,
         });
 
         res.send({ url: session.url });
       } catch (error) {
         console.error("Stripe checkout error:", error);
-        res
-          .status(500)
-          .send({
-            message: "Failed to create checkout session",
-            error: error.message,
-          });
+        res.status(500).send({
+          message: "Failed to create checkout session",
+          error: error.message,
+        });
       }
     });
 
@@ -559,6 +561,57 @@ async function run() {
           message: "Error fetching payment info",
           error: error.message,
         });
+      }
+    });
+
+    app.get("/payments", async (req, res) => {
+      try {
+        const result = await paymentsCollection.find().toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Error fetching applications", error });
+      }
+    });
+
+    // Analytics API
+    app.get("/analytics", async (req, res) => {
+      try {
+        const totalUsers = await userCollection.countDocuments();
+        const totalScholarships = await scholarshipCollection.countDocuments();
+
+        const payments = await paymentsCollection
+          .find({ paymentStatus: "paid" })
+          .toArray();
+        const totalFeesCollected = payments.reduce(
+          (acc, curr) => acc + (curr.amount || 0),
+          0
+        );
+
+        const pipeline = [
+          {
+            $group: {
+              _id: {
+                $ifNull: ["$scholarshipCategory", "Unknown"],
+              },
+              count: { $sum: 1 },
+            },
+          },
+        ];
+        const applicationsPerCategory = await applicationsCollection
+          .aggregate(pipeline)
+          .toArray();
+
+        res.send({
+          totalUsers,
+          totalScholarships,
+          totalFeesCollected,
+          applicationsPerCategory,
+        });
+      } catch (error) {
+        console.error(error);
+        res
+          .status(500)
+          .send({ message: "Error fetching analytics data", error });
       }
     });
 
