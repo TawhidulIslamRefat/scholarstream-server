@@ -494,7 +494,7 @@ async function run() {
       }
     });
 
-    app.patch("/payment-success",verifyJWT, async (req, res) => {
+    app.patch("/payment-success", async (req, res) => {
       try {
         const sessionId = req.query.session_id;
         if (!sessionId) {
@@ -577,7 +577,7 @@ async function run() {
       }
     });
 
-    app.get("/payment-failed",verifyJWT, async (req, res) => {
+    app.get("/payment-failed", async (req, res) => {
       try {
         const sessionId = req.query.session_id;
         if (!sessionId)
@@ -613,7 +613,7 @@ async function run() {
       }
     });
 
-    app.get("/payments",verifyJWT,verifyModerator, async (req, res) => {
+    app.get("/payments",verifyJWT, async (req, res) => {
       try {
         const result = await paymentsCollection.find().toArray();
         res.send(result);
