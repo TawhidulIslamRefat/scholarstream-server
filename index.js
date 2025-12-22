@@ -6,16 +6,29 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET);
 
 const app = express();
 const port = process.env.PORT || 3000;
+const jwt = require("jsonwebtoken");
 
 /* middleWare */
 app.use(cors());
 app.use(express.json());
 
-function generateTrackingId() {
-  const letters = Math.random().toString(36).substring(2, 6).toUpperCase();
-  const numbers = Math.floor(100000 + Math.random() * 900000);
-  return `ZAP-${letters}-${numbers}`;
-}
+// Verify Token
+const verifyJWT = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).send({ message: "Unauthorized" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "Unauthorized" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.fcwgrle.mongodb.net/?appName=Cluster0`;
 
@@ -37,6 +50,37 @@ async function run() {
     const reviewsCollection = db.collection("reviews");
     const applicationsCollection = db.collection("applications");
     const paymentsCollection = db.collection("payments");
+
+    // JWT
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.JWT_SECRET, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
+
+    const verifyModerator = async (req, res, next) => {
+      const email = req.decoded.email;
+      const user = await userCollection.findOne({ email });
+
+      if (!user || user.role !== "Moderator") {
+        return res.status(403).send({ message: "Forbidden - Moderator only" });
+      }
+
+      next();
+    };
+
+     const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const user = await userCollection.findOne({ email });
+
+      if (!user || user.role !== "Admin") {
+        return res.status(403).send({ message: "Forbidden - Admin only" });
+      }
+
+      next();
+    }
 
     /* User related Api */
     app.post("/users", async (req, res) => {
@@ -64,19 +108,24 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/users", async (req, res) => {
-      const result = await userCollection.find().toArray();
-      res.send(result);
+    app.get("/users", verifyJWT,verifyAdmin, async (req, res) => {
+      try {
+        const users = await userCollection.find().toArray();
+        res.send(users);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to fetch users" });
+      }
     });
 
-    app.delete("/users/:id", async (req, res) => {
+    app.delete("/users/:id",verifyJWT,verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
       res.send(result);
     });
 
-    app.patch("/users/role/:id", async (req, res) => {
+    app.patch("/users/role/:id",verifyJWT,verifyAdmin, async (req, res) => {
       const targetId = req.params.id;
       const { role } = req.body;
 
@@ -191,20 +240,20 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/scholarships", async (req, res) => {
+    app.post("/scholarships",verifyJWT, async (req, res) => {
       const newScholarship = req.body;
       const result = await scholarshipCollection.insertOne(newScholarship);
       res.send(result);
     });
 
-    app.delete("/scholarships/:id", async (req, res) => {
+    app.delete("/scholarships/:id",verifyJWT, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await scholarshipCollection.deleteOne(query);
       res.send(result);
     });
 
-    app.patch("/scholarships/:id", async (req, res) => {
+    app.patch("/scholarships/:id",verifyJWT, async (req, res) => {
       try {
         const id = req.params.id;
         const updatedData = req.body;
@@ -260,7 +309,7 @@ async function run() {
     });
 
     //  Review Api
-    app.post("/reviews", async (req, res) => {
+    app.post("/reviews",verifyJWT, async (req, res) => {
       const review = req.body;
       const result = await reviewsCollection.insertOne(review);
       res.send(result);
@@ -271,14 +320,14 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/reviews/:id", async (req, res) => {
+    app.delete("/reviews/:id",verifyJWT, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await reviewsCollection.deleteOne(query);
       res.send(result);
     });
 
-    app.get("/reviews/:email", async (req, res) => {
+    app.get("/reviews/:email",verifyJWT, async (req, res) => {
       const email = req.params.email;
       const result = await reviewsCollection
         .find({ userEmail: email })
@@ -286,7 +335,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/reviews/:id", async (req, res) => {
+    app.patch("/reviews/:id",verifyJWT, async (req, res) => {
       const id = req.params.id;
       const { comment, rating } = req.body;
 
@@ -311,13 +360,13 @@ async function run() {
     });
 
     // Application related API
-    app.post("/applications", async (req, res) => {
+    app.post("/applications",verifyJWT, async (req, res) => {
       const application = req.body;
       const result = await applicationsCollection.insertOne(application);
       res.send(result);
     });
 
-    app.get("/applications", async (req, res) => {
+    app.get("/applications", verifyJWT, verifyModerator, async (req, res) => {
       try {
         const result = await applicationsCollection.find().toArray();
         res.send(result);
@@ -326,7 +375,7 @@ async function run() {
       }
     });
 
-    app.get("/applications/:id", async (req, res) => {
+    app.get("/applications/:id",verifyJWT, async (req, res) => {
       try {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
@@ -342,7 +391,7 @@ async function run() {
       }
     });
 
-    app.get("/applications/user/:email", async (req, res) => {
+    app.get("/applications/user/:email",verifyJWT, async (req, res) => {
       const email = req.params.email;
       const query = {
         applicantEmail: email,
@@ -355,7 +404,7 @@ async function run() {
       }
     });
 
-    app.patch("/applications/:id", async (req, res) => {
+    app.patch("/applications/:id",verifyJWT, async (req, res) => {
       const id = req.params.id;
       const updates = req.body;
 
@@ -375,7 +424,7 @@ async function run() {
       }
     });
 
-    app.delete("/applications/:id", async (req, res) => {
+    app.delete("/applications/:id",verifyJWT, async (req, res) => {
       const id = req.params.id;
 
       try {
@@ -394,7 +443,7 @@ async function run() {
     });
 
     // payment
-    app.post("/create-checkout-session", async (req, res) => {
+    app.post("/create-checkout-session",verifyJWT, async (req, res) => {
       const {
         applicationFees,
         applicationId,
@@ -445,7 +494,7 @@ async function run() {
       }
     });
 
-    app.patch("/payment-success", async (req, res) => {
+    app.patch("/payment-success",verifyJWT, async (req, res) => {
       try {
         const sessionId = req.query.session_id;
         if (!sessionId) {
@@ -528,7 +577,7 @@ async function run() {
       }
     });
 
-    app.get("/payment-failed", async (req, res) => {
+    app.get("/payment-failed",verifyJWT, async (req, res) => {
       try {
         const sessionId = req.query.session_id;
         if (!sessionId)
@@ -564,7 +613,7 @@ async function run() {
       }
     });
 
-    app.get("/payments", async (req, res) => {
+    app.get("/payments",verifyJWT,verifyModerator, async (req, res) => {
       try {
         const result = await paymentsCollection.find().toArray();
         res.send(result);
@@ -574,7 +623,7 @@ async function run() {
     });
 
     // Analytics API
-    app.get("/analytics", async (req, res) => {
+    app.get("/analytics",verifyJWT,verifyAdmin, async (req, res) => {
       try {
         const totalUsers = await userCollection.countDocuments();
         const totalScholarships = await scholarshipCollection.countDocuments();
