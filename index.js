@@ -71,7 +71,7 @@ async function run() {
       next();
     };
 
-     const verifyAdmin = async (req, res, next) => {
+    const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
       const user = await userCollection.findOne({ email });
 
@@ -80,7 +80,7 @@ async function run() {
       }
 
       next();
-    }
+    };
 
     /* User related Api */
     app.post("/users", async (req, res) => {
@@ -108,7 +108,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/users", verifyJWT,verifyAdmin, async (req, res) => {
+    app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
       try {
         const users = await userCollection.find().toArray();
         res.send(users);
@@ -118,14 +118,14 @@ async function run() {
       }
     });
 
-    app.delete("/users/:id",verifyJWT,verifyAdmin, async (req, res) => {
+    app.delete("/users/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
       res.send(result);
     });
 
-    app.patch("/users/role/:id",verifyJWT,verifyAdmin, async (req, res) => {
+    app.patch("/users/role/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const targetId = req.params.id;
       const { role } = req.body;
 
@@ -240,20 +240,20 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/scholarships",verifyJWT, async (req, res) => {
+    app.post("/scholarships", verifyJWT, async (req, res) => {
       const newScholarship = req.body;
       const result = await scholarshipCollection.insertOne(newScholarship);
       res.send(result);
     });
 
-    app.delete("/scholarships/:id",verifyJWT, async (req, res) => {
+    app.delete("/scholarships/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await scholarshipCollection.deleteOne(query);
       res.send(result);
     });
 
-    app.patch("/scholarships/:id",verifyJWT, async (req, res) => {
+    app.patch("/scholarships/:id", verifyJWT, async (req, res) => {
       try {
         const id = req.params.id;
         const updatedData = req.body;
@@ -309,7 +309,7 @@ async function run() {
     });
 
     //  Review Api
-    app.post("/reviews",verifyJWT, async (req, res) => {
+    app.post("/reviews", verifyJWT, async (req, res) => {
       const review = req.body;
       const result = await reviewsCollection.insertOne(review);
       res.send(result);
@@ -320,14 +320,14 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/reviews/:id",verifyJWT, async (req, res) => {
+    app.delete("/reviews/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await reviewsCollection.deleteOne(query);
       res.send(result);
     });
 
-    app.get("/reviews/:email",verifyJWT, async (req, res) => {
+    app.get("/reviews/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
       const result = await reviewsCollection
         .find({ userEmail: email })
@@ -335,7 +335,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/reviews/:id",verifyJWT, async (req, res) => {
+    app.patch("/reviews/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const { comment, rating } = req.body;
 
@@ -359,8 +359,22 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/reviewsByName/:scholarshipName", async (req, res) => {
+      try {
+        const name = req.params.scholarshipName;
+        const reviews = await reviewsCollection
+          .find({ scholarshipName: name })
+          .toArray();
+        res.send(reviews);
+      } catch (err) {
+        res
+          .status(500)
+          .send({ message: "Failed to fetch reviews", error: err });
+      }
+    });
+
     // Application related API
-    app.post("/applications",verifyJWT, async (req, res) => {
+    app.post("/applications", verifyJWT, async (req, res) => {
       const application = req.body;
       const result = await applicationsCollection.insertOne(application);
       res.send(result);
@@ -375,7 +389,7 @@ async function run() {
       }
     });
 
-    app.get("/applications/:id",verifyJWT, async (req, res) => {
+    app.get("/applications/:id", verifyJWT, async (req, res) => {
       try {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
@@ -391,7 +405,7 @@ async function run() {
       }
     });
 
-    app.get("/applications/user/:email",verifyJWT, async (req, res) => {
+    app.get("/applications/user/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
       const query = {
         applicantEmail: email,
@@ -404,7 +418,7 @@ async function run() {
       }
     });
 
-    app.patch("/applications/:id",verifyJWT, async (req, res) => {
+    app.patch("/applications/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const updates = req.body;
 
@@ -424,7 +438,7 @@ async function run() {
       }
     });
 
-    app.delete("/applications/:id",verifyJWT, async (req, res) => {
+    app.delete("/applications/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
 
       try {
@@ -443,7 +457,7 @@ async function run() {
     });
 
     // payment
-    app.post("/create-checkout-session",verifyJWT, async (req, res) => {
+    app.post("/create-checkout-session", verifyJWT, async (req, res) => {
       const {
         applicationFees,
         applicationId,
@@ -613,7 +627,7 @@ async function run() {
       }
     });
 
-    app.get("/payments",verifyJWT, async (req, res) => {
+    app.get("/payments", verifyJWT, async (req, res) => {
       try {
         const result = await paymentsCollection.find().toArray();
         res.send(result);
@@ -623,7 +637,7 @@ async function run() {
     });
 
     // Analytics API
-    app.get("/analytics",verifyJWT,verifyAdmin, async (req, res) => {
+    app.get("/analytics", verifyJWT, verifyAdmin, async (req, res) => {
       try {
         const totalUsers = await userCollection.countDocuments();
         const totalScholarships = await scholarshipCollection.countDocuments();
