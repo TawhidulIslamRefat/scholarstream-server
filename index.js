@@ -50,7 +50,7 @@ async function run() {
     const reviewsCollection = db.collection("reviews");
     const applicationsCollection = db.collection("applications");
     const paymentsCollection = db.collection("payments");
-    /* middleWare JWT*/
+    /* middleWare*/
     // JWT
     app.post("/jwt", async (req, res) => {
       const user = req.body;
