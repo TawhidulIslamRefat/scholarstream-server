@@ -354,8 +354,9 @@ async function run() {
     });
 
     app.get("/reviews/:scholarshipId", async (req, res) => {
-      const scholarshipId = req.params.scholarshipId;
+      const scholarshipId = req.params.scholarshipId.trim();
       const result = await reviewsCollection.find({ scholarshipId }).toArray();
+      res.set("Cache-Control", "no-store");
       res.send(result);
     });
 
